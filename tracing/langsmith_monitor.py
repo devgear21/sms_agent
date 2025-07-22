@@ -6,7 +6,6 @@ Sets up comprehensive monitoring and tracing for the SMS agent
 import os
 from typing import Dict, Any, Optional, List
 from langsmith import Client, RunTree
-from langsmith.schemas import Run, RunCreate
 from datetime import datetime, timezone
 import json
 import structlog
