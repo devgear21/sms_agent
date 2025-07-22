@@ -52,22 +52,24 @@ logger = structlog.get_logger()
 
 # FastAPI app
 app = FastAPI(
-    title="SMS Appointment Booking Agent",
-    description="LangGraph-powered SMS agent for appointment booking with Calendly integration",
+    title="WhatsApp Appointment Booking Agent",
+    description="LangGraph-powered WhatsApp agent for appointment booking with Calendly integration",
     version="1.0.0"
 )
 
 # Simple in-memory session store (in production, use Redis)
 session_store: Dict[str, Dict[str, Any]] = {}
 
-class TwilioWebhook(BaseModel):
-    """Pydantic model for Twilio webhook payload"""
+class TwilioWhatsAppWebhook(BaseModel):
+    """Pydantic model for Twilio WhatsApp webhook payload"""
     MessageSid: str
     AccountSid: str
-    From: str
-    To: str
+    From: str  # Format: whatsapp:+1234567890
+    To: str    # Format: whatsapp:+1234567890
     Body: str
     NumMedia: Optional[str] = "0"
+    MediaUrl0: Optional[str] = None
+    MediaContentType0: Optional[str] = None
 
 class ConversationOrchestrator:
     """Orchestrates the conversation flow through LangGraph nodes"""
@@ -75,12 +77,12 @@ class ConversationOrchestrator:
     def __init__(self):
         self.logger = logger
     
-    async def process_sms(self, webhook_data: TwilioWebhook) -> Dict[str, Any]:
+    async def process_whatsapp(self, webhook_data: TwilioWhatsAppWebhook) -> Dict[str, Any]:
         """
-        Process incoming SMS through the LangGraph workflow
+        Process incoming WhatsApp message through the LangGraph workflow
         
         Args:
-            webhook_data: Twilio webhook payload
+            webhook_data: Twilio WhatsApp webhook payload
         
         Returns:
             Processing results
@@ -90,10 +92,12 @@ class ConversationOrchestrator:
         session_trace = None
         
         try:
-            # Step 1: Validate phone number
+            # Step 1: Validate phone number (extract from WhatsApp format)
             validation_start = time.time()
+            # Remove 'whatsapp:' prefix from phone number
+            clean_from = webhook_data.From.replace('whatsapp:', '')
             validation_result = validate_phone_number({
-                'From': webhook_data.From,
+                'From': clean_from,
                 'Body': webhook_data.Body
             })
             validation_duration = (time.time() - validation_start) * 1000
@@ -101,7 +105,7 @@ class ConversationOrchestrator:
             if not validation_result.get('isValid'):
                 # Send error SMS for invalid phone
                 await self._send_error_and_log(
-                    phone_number=webhook_data.From,
+                    phone_number=webhook_data.From.replace('whatsapp:', ''),
                     error_type="phone_validation",
                     session_id=validation_result.get('sessionId', ''),
                     context={"original_number": webhook_data.From}
@@ -226,7 +230,7 @@ class ConversationOrchestrator:
             # Send error message to user
             if 'session_id' in locals():
                 await self._send_error_and_log(
-                    phone_number=webhook_data.From,
+                    phone_number=webhook_data.From.replace('whatsapp:', ''),
                     error_type="general",
                     session_id=session_id,
                     context={"error": str(e)}
@@ -477,11 +481,11 @@ class ConversationOrchestrator:
 # Initialize orchestrator
 orchestrator = ConversationOrchestrator()
 
-@app.post("/webhook/twilio")
-async def twilio_webhook(request: Request, background_tasks: BackgroundTasks):
+@app.post("/webhook/whatsapp")
+async def twilio_whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
     """
-    Twilio SMS webhook endpoint
-    Receives incoming SMS messages and processes them through the conversation flow
+    Twilio WhatsApp webhook endpoint
+    Receives incoming WhatsApp messages and processes them through the conversation flow
     """
     
     try:
@@ -489,29 +493,31 @@ async def twilio_webhook(request: Request, background_tasks: BackgroundTasks):
         form_data = await request.form()
         
         # Convert to our webhook model
-        webhook_data = TwilioWebhook(
+        webhook_data = TwilioWhatsAppWebhook(
             MessageSid=form_data.get('MessageSid', ''),
             AccountSid=form_data.get('AccountSid', ''),
             From=form_data.get('From', ''),
             To=form_data.get('To', ''),
             Body=form_data.get('Body', ''),
-            NumMedia=form_data.get('NumMedia', '0')
+            NumMedia=form_data.get('NumMedia', '0'),
+            MediaUrl0=form_data.get('MediaUrl0'),
+            MediaContentType0=form_data.get('MediaContentType0')
         )
         
-        logger.info("Received SMS webhook", 
+        logger.info("Received WhatsApp webhook", 
                    from_number=webhook_data.From,
                    message_body=webhook_data.Body,
                    message_sid=webhook_data.MessageSid)
         
         # Process in background to return quickly to Twilio
-        background_tasks.add_task(orchestrator.process_sms, webhook_data)
+        background_tasks.add_task(orchestrator.process_whatsapp, webhook_data)
         
         # Return success to Twilio
         return PlainTextResponse("OK", status_code=200)
     
     except Exception as e:
-        logger.error("Webhook processing failed", error=str(e))
-        raise HTTPException(status_code=500, detail="Webhook processing failed")
+        logger.error("WhatsApp webhook processing failed", error=str(e))
+        raise HTTPException(status_code=500, detail="WhatsApp webhook processing failed")
 
 @app.get("/health")
 async def health_check():
@@ -539,7 +545,7 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     debug_mode = os.getenv("DEBUG_MODE", "false").lower() == "true"
     
-    logger.info("Starting SMS Appointment Booking Agent", 
+    logger.info("Starting WhatsApp Appointment Booking Agent", 
                port=port, 
                debug_mode=debug_mode)
     

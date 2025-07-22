@@ -1,14 +1,13 @@
-# SMS Appointment Booking Agent
+# WhatsApp Appointment Booking Agent
 
-A comprehensive LangGraph-powered SMS agent that automates appointment booking through Calendly integration, featuring natural language processing, LangSmith monitoring, and robust error handling.
-After deployment, configure your Twilio webhook:
+A comprehensive LangGraph-powered WhatsApp agent that automates appointment booking through Calendly integration, featuring natural language processing, LangSmith monitoring, and robust error handling.
+After deployment, configure your Twilio WhatsApp webhook:
 
 1. Go to your Twilio Console
-2. Navigate to Phone Numbers → Manage → Active numbers
-3. Click on your SMS-enabled phone number
-4. Set webhook URL to: `https://your-domain.com/webhook/twilio` Features
+2. Navigate to Messaging → Settings → WhatsApp Sandbox
+3. Set webhook URL to: `https://your-domain.com/webhook/whatsapp` Features
 
-- **SMS Conversation Management**: Natural language appointment booking via SMS
+- **WhatsApp Conversation Management**: Natural language appointment booking via WhatsApp
 - **Phone Number Validation**: Robust validation using libphonenumber
 - **AI-Powered Processing**: Groq LLaMA for intelligent conversation handling
 - **Calendly Integration**: Real-time availability checking and appointment creation
@@ -20,7 +19,7 @@ After deployment, configure your Twilio webhook:
 ## 📋 Prerequisites
 
 - **Python 3.9+**
-- **Twilio Account** with SMS capabilities
+- **Twilio Account** with WhatsApp Sandbox access
 - **Groq API Key** for LLM processing
 - **Calendly API Access** (Professional plan or higher)
 - **LangSmith Account** for monitoring

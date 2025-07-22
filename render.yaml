@@ -1,7 +1,7 @@
 version: 2
 services:
   - type: web
-    name: sms-appointment-agent
+    name: whatsapp-appointment-agent
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py
@@ -10,7 +10,7 @@ services:
         sync: false
       - key: TWILIO_AUTH_TOKEN
         sync: false
-      - key: TWILIO_PHONE_NUMBER
+      - key: TWILIO_WHATSAPP_NUMBER
         sync: false
       - key: GROQ_API_KEY
         sync: false
@@ -21,7 +21,7 @@ services:
       - key: LANGSMITH_API_KEY
         sync: false
       - key: LANGSMITH_PROJECT_NAME
-        value: sms-appointment-booking
+        value: whatsapp-appointment-booking
       - key: LANGSMITH_ENDPOINT
         value: https://api.smith.langchain.com
       - key: DEBUG_MODE

@@ -1,6 +1,6 @@
 """
-Twilio SMS Sender Node
-Handles sending SMS messages with retry logic and LangSmith tracing
+Twilio WhatsApp Sender Node
+Handles sending WhatsApp messages with retry logic and LangSmith tracing
 Supports welcome messages, confirmations, and error notifications
 """
 
@@ -15,36 +15,36 @@ from datetime import datetime
 # Configure structured logging
 logger = structlog.get_logger()
 
-class SMSSendingError(Exception):
-    """Custom exception for SMS sending errors"""
+class WhatsAppSendingError(Exception):
+    """Custom exception for WhatsApp sending errors"""
     pass
 
-class TwilioSMSSender:
+class TwilioWhatsAppSender:
     def __init__(self):
         """Initialize Twilio client with credentials from environment"""
         self.account_sid = os.getenv('TWILIO_ACCOUNT_SID')
         self.auth_token = os.getenv('TWILIO_AUTH_TOKEN')
-        self.from_number = os.getenv('TWILIO_PHONE_NUMBER')
+        self.from_number = os.getenv('TWILIO_WHATSAPP_NUMBER')  # Format: whatsapp:+14155238886
         
         if not all([self.account_sid, self.auth_token, self.from_number]):
             raise ValueError("Missing required Twilio environment variables")
         
         self.client = Client(self.account_sid, self.auth_token)
-        logger.info("Twilio SMS sender initialized", from_number=self.from_number)
+        logger.info("Twilio WhatsApp sender initialized", from_number=self.from_number)
 
     @traceable(
-        name="send_sms",
-        tags=["sms", "twilio", "communication"],
-        metadata={"component": "twilio_sender"}
+        name="send_whatsapp",
+        tags=["whatsapp", "twilio", "communication"],
+        metadata={"component": "twilio_whatsapp_sender"}
     )
-    def send_sms(self, to_number: str, message: str, session_id: str, 
-                 message_type: str = "general") -> Dict[str, Any]:
+    def send_whatsapp(self, to_number: str, message: str, session_id: str, 
+                      message_type: str = "general") -> Dict[str, Any]:
         """
-        Send SMS message via Twilio
+        Send WhatsApp message via Twilio
         
         Args:
-            to_number: Recipient phone number in E.164 format
-            message: SMS message content
+            to_number: Recipient phone number in E.164 format (will be prefixed with whatsapp:)
+            message: WhatsApp message content
             session_id: Session identifier for tracking
             message_type: Type of message (welcome, confirmation, error, etc.)
         
@@ -52,21 +52,25 @@ class TwilioSMSSender:
             Dict with success status and message details
         """
         
-        logger.info("Attempting to send SMS", 
+        # Ensure proper WhatsApp formatting
+        if not to_number.startswith('whatsapp:'):
+            to_number = f"whatsapp:{to_number}"
+        
+        logger.info("Attempting to send WhatsApp message", 
                     to_number=to_number,
                     message_type=message_type,
                     session_id=session_id,
                     message_length=len(message))
         
         try:
-            # Send SMS via Twilio
+            # Send WhatsApp message via Twilio
             message_obj = self.client.messages.create(
                 body=message,
                 from_=self.from_number,
                 to=to_number
             )
             
-            logger.info("SMS sent successfully", 
+            logger.info("WhatsApp message sent successfully", 
                         message_sid=message_obj.sid,
                         to_number=to_number,
                         message_type=message_type,
@@ -84,8 +88,8 @@ class TwilioSMSSender:
             }
             
         except TwilioException as e:
-            error_msg = f"Twilio error: {e.msg}"
-            logger.error("Twilio SMS sending failed", 
+            error_msg = f"Twilio WhatsApp error: {e.msg}"
+            logger.error("Twilio WhatsApp sending failed", 
                         error=str(e),
                         error_code=getattr(e, 'code', 'unknown'),
                         to_number=to_number,
@@ -102,8 +106,8 @@ class TwilioSMSSender:
             }
             
         except Exception as e:
-            error_msg = f"Unexpected SMS error: {str(e)}"
-            logger.error("Unexpected SMS sending error", 
+            error_msg = f"Unexpected WhatsApp error: {str(e)}"
+            logger.error("Unexpected WhatsApp sending error", 
                         error=str(e),
                         to_number=to_number,
                         session_id=session_id)
@@ -117,17 +121,17 @@ class TwilioSMSSender:
                 "timestamp": datetime.utcnow().isoformat()
             }
 
-# Global SMS sender instance
-sms_sender = TwilioSMSSender()
+# Global WhatsApp sender instance
+whatsapp_sender = TwilioWhatsAppSender()
 
 @traceable(
-    name="send_welcome_sms",
-    tags=["sms", "welcome", "onboarding"],
-    metadata={"component": "welcome_sms"}
+    name="send_welcome_whatsapp",
+    tags=["whatsapp", "welcome", "onboarding"],
+    metadata={"component": "welcome_whatsapp"}
 )
 def send_welcome_sms(inputs: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Send welcome/greeting SMS to new users
+    Send welcome/greeting WhatsApp message to new users
     
     Args:
         inputs: Dict containing phoneNumber and sessionId
@@ -150,7 +154,7 @@ Please tell me when you'd like to meet. You can say things like:
 
 What works best for you?"""
     
-    return sms_sender.send_sms(
+    return whatsapp_sender.send_whatsapp(
         to_number=phone_number,
         message=welcome_message,
         session_id=session_id,
@@ -158,13 +162,13 @@ What works best for you?"""
     )
 
 @traceable(
-    name="send_confirmation_sms",
-    tags=["sms", "confirmation", "booking"],
-    metadata={"component": "confirmation_sms"}
+    name="send_confirmation_whatsapp",
+    tags=["whatsapp", "confirmation", "booking"],
+    metadata={"component": "confirmation_whatsapp"}
 )
 def send_confirmation_sms(inputs: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Send appointment confirmation SMS
+    Send appointment confirmation WhatsApp message
     
     Args:
         inputs: Dict containing phoneNumber, confirmationDetails, eventUrl, sessionId
@@ -195,7 +199,7 @@ Need to reschedule? Reply with "reschedule" or visit the link above.
 
 We'll send you a reminder 24 hours before your appointment."""
     
-    return sms_sender.send_sms(
+    return whatsapp_sender.send_whatsapp(
         to_number=phone_number,
         message=confirmation_message,
         session_id=session_id,
@@ -251,7 +255,7 @@ Please choose one or suggest another time that works for you."""
 
 Could you please suggest a different date or time? I'll check what's available and get back to you right away."""
     
-    return sms_sender.send_sms(
+    return whatsapp_sender.send_whatsapp(
         to_number=phone_number,
         message=message,
         session_id=session_id,
