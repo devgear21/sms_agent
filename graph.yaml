@@ -1,0 +1,320 @@
+apiVersion: langgraph/v1
+kind: Graph
+metadata:
+  name: sms-appointment-booking-agent
+  description: "End-to-end SMS appointment booking with Calendly integration and LangSmith monitoring"
+  version: "1.0.0"
+
+spec:
+  # Graph-scoped memory and state management
+  state:
+    schema:
+      phoneNumber: 
+        type: string
+        description: "Validated phone number in E.164 format"
+      userMessage: 
+        type: string
+        description: "Latest inbound SMS message"
+      sessionId: 
+        type: string
+        description: "Unique session identifier"
+      conversationState:
+        type: string
+        enum: ["new", "collecting_preferences", "checking_availability", "confirming", "completed", "error"]
+        default: "new"
+      requestedDateTime: 
+        type: string
+        description: "User's requested appointment date/time"
+      availableSlots: 
+        type: array
+        description: "List of available Calendly slots"
+      eventId: 
+        type: string
+        description: "Created Calendly event ID"
+      retryCount: 
+        type: integer
+        default: 0
+      lastError: 
+        type: string
+        description: "Last error message for debugging"
+
+  # Memory configuration with Redis backend
+  memory:
+    provider: redis
+    config:
+      url: "${REDIS_URL}"
+      ttl: 3600  # 1 hour session timeout
+
+  # LangSmith tracing and monitoring
+  tracing:
+    provider: langsmith
+    config:
+      api_key: "${LANGSMITH_API_KEY}"
+      project_name: "sms-appointment-booking"
+      tags: ["sms", "appointment", "calendly"]
+      capture_inputs: true
+      capture_outputs: true
+      capture_errors: true
+
+  # Graph entry point - Twilio webhook
+  entrypoint:
+    type: webhook
+    path: "/webhook/twilio"
+    method: POST
+    node: validate_phone_number
+
+  # Node definitions
+  nodes:
+    # 1. Phone Number Validation
+    validate_phone_number:
+      type: function
+      implementation: "./nodes/phone_validator.py"
+      description: "Validates inbound phone number using libphonenumber"
+      inputs:
+        - From  # Twilio webhook field
+        - Body  # SMS message content
+      outputs:
+        - phoneNumber
+        - isValid
+        - sessionId
+      tracing:
+        span_name: "phone_validation"
+        capture_metadata: true
+      error_handling:
+        retry_count: 3
+        retry_delay: 1
+        fallback_node: send_error_sms
+
+    # 2. Send Welcome SMS
+    send_welcome_sms:
+      type: function
+      implementation: "./nodes/twilio_sender.py"
+      description: "Sends immediate greeting SMS to validated user"
+      inputs:
+        - phoneNumber
+        - sessionId
+      outputs:
+        - messageSent
+        - messageId
+      tracing:
+        span_name: "welcome_sms"
+        capture_metadata: true
+      error_handling:
+        retry_count: 3
+        retry_delay: 2
+        fallback_node: log_sms_failure
+
+    # 3. Conversational Logic with Groq LLaMA
+    process_user_message:
+      type: function
+      implementation: "./nodes/groq_processor.py"
+      description: "Uses Groq LLaMA for slot-filling and conversation management"
+      inputs:
+        - userMessage
+        - conversationState
+        - sessionId
+      outputs:
+        - extractedDateTime
+        - responseMessage
+        - nextState
+        - needsMoreInfo
+      tracing:
+        span_name: "groq_processing"
+        capture_metadata: true
+        capture_llm_traces: true
+      error_handling:
+        retry_count: 2
+        retry_delay: 3
+        fallback_node: send_fallback_response
+
+    # 4. Check Calendly Availability
+    check_calendly_availability:
+      type: function
+      implementation: "./nodes/calendly_checker.py"
+      description: "Queries Calendly API for available appointment slots"
+      inputs:
+        - requestedDateTime
+        - sessionId
+      outputs:
+        - availableSlots
+        - suggestedAlternatives
+        - isAvailable
+      tracing:
+        span_name: "calendly_availability"
+        capture_metadata: true
+      error_handling:
+        retry_count: 3
+        retry_delay: 5
+        fallback_node: send_availability_error
+
+    # 5. Create Calendly Event
+    create_calendly_event:
+      type: function
+      implementation: "./nodes/calendly_creator.py"
+      description: "Creates appointment in Calendly and returns event details"
+      inputs:
+        - requestedDateTime
+        - phoneNumber
+        - sessionId
+      outputs:
+        - eventId
+        - eventUrl
+        - confirmationDetails
+      tracing:
+        span_name: "calendly_creation"
+        capture_metadata: true
+      error_handling:
+        retry_count: 3
+        retry_delay: 5
+        fallback_node: send_booking_error
+
+    # 6. Send Confirmation SMS
+    send_confirmation_sms:
+      type: function
+      implementation: "./nodes/twilio_sender.py"
+      description: "Sends appointment confirmation SMS with details"
+      inputs:
+        - phoneNumber
+        - confirmationDetails
+        - eventUrl
+        - sessionId
+      outputs:
+        - messageSent
+        - messageId
+      tracing:
+        span_name: "confirmation_sms"
+        capture_metadata: true
+      error_handling:
+        retry_count: 3
+        retry_delay: 2
+        fallback_node: log_confirmation_failure
+
+    # Error handling nodes
+    send_error_sms:
+      type: function
+      implementation: "./nodes/error_handler.py"
+      description: "Sends user-friendly error messages via SMS"
+      inputs:
+        - phoneNumber
+        - errorType
+        - sessionId
+      outputs:
+        - messageSent
+      tracing:
+        span_name: "error_sms"
+
+    send_fallback_response:
+      type: function
+      implementation: "./nodes/fallback_handler.py"
+      description: "Provides fallback responses when AI processing fails"
+      inputs:
+        - phoneNumber
+        - userMessage
+        - sessionId
+      outputs:
+        - messageSent
+      tracing:
+        span_name: "fallback_response"
+
+    log_sms_failure:
+      type: function
+      implementation: "./nodes/logger.py"
+      description: "Logs SMS delivery failures for monitoring"
+      inputs:
+        - error
+        - sessionId
+        - phoneNumber
+      outputs:
+        - logged
+      tracing:
+        span_name: "sms_failure_log"
+
+  # Graph flow edges
+  edges:
+    # Entry flow
+    - from: validate_phone_number
+      to: send_welcome_sms
+      condition: "inputs.isValid == true"
+    
+    - from: validate_phone_number
+      to: send_error_sms
+      condition: "inputs.isValid == false"
+
+    # Welcome flow
+    - from: send_welcome_sms
+      to: process_user_message
+      condition: "inputs.messageSent == true"
+
+    # Conversation processing
+    - from: process_user_message
+      to: check_calendly_availability
+      condition: "outputs.extractedDateTime != null and outputs.needsMoreInfo == false"
+    
+    - from: process_user_message
+      to: send_welcome_sms  # Loop back for more info
+      condition: "outputs.needsMoreInfo == true"
+
+    # Availability checking
+    - from: check_calendly_availability
+      to: create_calendly_event
+      condition: "outputs.isAvailable == true"
+    
+    - from: check_calendly_availability
+      to: process_user_message  # Suggest alternatives
+      condition: "outputs.isAvailable == false"
+
+    # Event creation and confirmation
+    - from: create_calendly_event
+      to: send_confirmation_sms
+      condition: "outputs.eventId != null"
+    
+    - from: send_confirmation_sms
+      to: END
+      condition: "outputs.messageSent == true"
+
+  # Monitoring and alerting configuration
+  monitoring:
+    metrics:
+      - name: "conversation_completion_rate"
+        description: "Percentage of conversations that result in successful bookings"
+        type: "percentage"
+        query: "success_rate(span_name='confirmation_sms')"
+      
+      - name: "average_conversation_duration"
+        description: "Average time from first SMS to confirmation"
+        type: "duration"
+        query: "avg_duration(start_span='phone_validation', end_span='confirmation_sms')"
+      
+      - name: "error_rate_by_node"
+        description: "Error rates for each processing node"
+        type: "rate"
+        query: "error_rate(group_by='span_name')"
+
+    alerts:
+      - name: "high_error_rate"
+        condition: "error_rate > 0.1"  # 10% error rate
+        notification_channels: ["email", "slack"]
+      
+      - name: "calendly_api_down"
+        condition: "error_count(span_name='calendly_availability') > 5 in 5m"
+        notification_channels: ["email", "pager"]
+      
+      - name: "sms_delivery_failure"
+        condition: "error_count(span_name like '%sms%') > 10 in 10m"
+        notification_channels: ["email"]
+
+  # Environment variables configuration
+  environment:
+    required:
+      - TWILIO_ACCOUNT_SID
+      - TWILIO_AUTH_TOKEN
+      - TWILIO_PHONE_NUMBER
+      - GROQ_API_KEY
+      - CALENDLY_API_TOKEN
+      - CALENDLY_USER_URI
+      - LANGSMITH_API_KEY
+      - REDIS_URL
+    optional:
+      - DEBUG_MODE: "false"
+      - MAX_RETRY_ATTEMPTS: "3"
+      - SESSION_TIMEOUT: "3600"

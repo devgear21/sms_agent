@@ -1,0 +1,34 @@
+# Core LangGraph and LangSmith dependencies
+langgraph>=0.2.0
+langchain>=0.1.0
+langsmith>=0.1.0
+langchain-groq>=0.1.0
+
+# SMS and phone validation
+twilio>=8.0.0
+phonenumbers>=8.13.0
+
+# Calendar integration
+requests>=2.31.0
+httpx>=0.24.0
+
+# Data persistence and caching
+redis>=4.5.0
+google-cloud-firestore>=2.11.0
+
+# Web framework for webhook endpoints
+fastapi>=0.100.0
+uvicorn>=0.22.0
+
+# Environment and configuration
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+
+# Testing and development
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.11.0
+httpx[testing]>=0.24.0
+
+# Logging and monitoring
+structlog>=23.1.0
