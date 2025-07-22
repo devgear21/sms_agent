@@ -9,16 +9,16 @@ from langsmith import traceable
 import structlog
 from datetime import datetime
 
-# Import the SMS sender
-from .twilio_sender import TwilioSMSSender
+# Import the WhatsApp sender
+from .twilio_sender import TwilioWhatsAppSender
 
 # Configure structured logging
 logger = structlog.get_logger()
 
 class ErrorHandler:
     def __init__(self):
-        """Initialize error handler with SMS capabilities"""
-        self.sms_sender = TwilioSMSSender()
+        """Initialize error handler with WhatsApp capabilities"""
+        self.whatsapp_sender = TwilioWhatsAppSender()
         logger.info("Error handler initialized")
 
     def get_error_message(self, error_type: str, context: Dict[str, Any] = None) -> str:
@@ -108,7 +108,7 @@ class ErrorHandler:
                 error_message += "\n\nWe apologize for the inconvenience. Our team has been notified."
             
             # Send the error message
-            result = self.sms_sender.send_sms(
+            result = self.whatsapp_sender.send_whatsapp(
                 to_number=phone_number,
                 message=error_message,
                 session_id=session_id,

@@ -11,15 +11,15 @@ import structlog
 from datetime import datetime
 
 # Import the SMS sender
-from .twilio_sender import TwilioSMSSender
+from .twilio_sender import TwilioWhatsAppSender
 
 # Configure structured logging
 logger = structlog.get_logger()
 
 class FallbackHandler:
     def __init__(self):
-        """Initialize fallback handler with SMS capabilities"""
-        self.sms_sender = TwilioSMSSender()
+        """Initialize fallback handler with WhatsApp capabilities"""
+        self.whatsapp_sender = TwilioWhatsAppSender()
         logger.info("Fallback handler initialized")
 
     def get_fallback_responses(self) -> Dict[str, List[str]]:
@@ -172,7 +172,7 @@ class FallbackHandler:
             )
             
             # Send the fallback message
-            result = self.sms_sender.send_sms(
+            result = self.whatsapp_sender.send_whatsapp(
                 to_number=phone_number,
                 message=fallback_message,
                 session_id=session_id,
@@ -327,7 +327,7 @@ Examples:
 What would you like to schedule?"""
     
     try:
-        result = fallback_handler.sms_sender.send_sms(
+        result = fallback_handler.whatsapp_sender.send_whatsapp(
             to_number=phone_number,
             message=help_message,
             session_id=session_id,
