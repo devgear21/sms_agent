@@ -6,7 +6,7 @@ Handles comprehensive logging for SMS agent monitoring and debugging
 import os
 import json
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from langsmith import traceable
 import structlog
 from enum import Enum
