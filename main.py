@@ -20,7 +20,7 @@ from nodes.twilio_sender import send_welcome_sms, send_confirmation_sms
 from nodes.groq_processor import process_user_message
 from nodes.calendly_checker import check_calendly_availability
 from nodes.calendly_creator import create_calendly_event
-from nodes.error_handler import send_error_sms
+from nodes.error_handler import send_error_whatsapp
 from nodes.fallback_handler import send_fallback_response
 from nodes.logger import sms_logger
 
@@ -461,8 +461,8 @@ class ConversationOrchestrator:
     
     async def _send_error_and_log(self, phone_number: str, error_type: str,
                                  session_id: str, context: Dict[str, Any]) -> None:
-        """Send error SMS and log the error"""
-        error_result = send_error_sms({
+        """Send error WhatsApp and log the error"""
+        error_result = send_error_whatsapp({
             'phoneNumber': phone_number,
             'errorType': error_type,
             'sessionId': session_id,

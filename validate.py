@@ -80,7 +80,7 @@ def test_error_handler_structure():
     print("🧪 Testing Error Handler Structure...")
     
     try:
-        from nodes.error_handler import ErrorHandler, send_error_sms
+        from nodes.error_handler import ErrorHandler, send_error_whatsapp
         
         # Test handler initialization
         handler = ErrorHandler()

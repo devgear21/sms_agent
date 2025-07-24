@@ -72,14 +72,14 @@ class ErrorHandler:
         return base_message
 
     @traceable(
-        name="send_error_sms",
-        tags=["error", "sms", "user_communication"],
+        name="send_error_whatsapp",
+        tags=["error", "whatsapp", "user_communication"],
         metadata={"component": "error_handler"}
     )
-    def send_error_sms(self, phone_number: str, error_type: str, 
+    def send_error_whatsapp(self, phone_number: str, error_type: str, 
                       session_id: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Send error message via SMS to user
+        Send error message via WhatsApp to user
         
         Args:
             phone_number: User's phone number
@@ -142,13 +142,13 @@ class ErrorHandler:
 error_handler = ErrorHandler()
 
 @traceable(
-    name="send_error_sms",
-    tags=["error_handling", "sms"],
-    metadata={"component": "error_sms"}
+    name="send_error_whatsapp",
+    tags=["error_handling", "whatsapp"],
+    metadata={"component": "error_whatsapp"}
 )
-def send_error_sms(inputs: Dict[str, Any]) -> Dict[str, Any]:
+def send_error_whatsapp(inputs: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Main entry point for sending error SMS messages
+    Main entry point for sending error WhatsApp messages
     
     Args:
         inputs: Dict containing phoneNumber, errorType, sessionId, context
@@ -171,7 +171,7 @@ def send_error_sms(inputs: Dict[str, Any]) -> Dict[str, Any]:
             "sessionId": session_id
         }
     
-    return error_handler.send_error_sms(
+    return error_handler.send_error_whatsapp(
         phone_number=phone_number,
         error_type=error_type,
         session_id=session_id,
@@ -244,11 +244,11 @@ if __name__ == "__main__":
     )
     print(f"With context: {context_message}")
     
-    # Test error SMS sending (requires valid Twilio credentials)
-    print("\nTesting error SMS sending...")
-    result = send_error_sms({
+    # Test error WhatsApp sending (requires valid Twilio credentials)
+    print("\nTesting error WhatsApp sending...")
+    result = send_error_whatsapp({
         "phoneNumber": "+1234567890",  # Replace with test number
         "errorType": "groq_processing",
         "sessionId": "test-error-session"
     })
-    print(f"SMS result: {result}")
+    print(f"WhatsApp result: {result}")

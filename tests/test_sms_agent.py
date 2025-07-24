@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from nodes.phone_validator import validate_phone_number, is_phone_number_mobile
 from nodes.groq_processor import process_user_message, ConversationProcessor
-from nodes.error_handler import send_error_sms, ErrorHandler
+from nodes.error_handler import send_error_whatsapp, ErrorHandler
 from nodes.fallback_handler import send_fallback_response, FallbackHandler
 from nodes.logger import log_sms_failure, sms_logger
 
@@ -210,13 +210,13 @@ class TestErrorHandler:
             'sessionId': 'test-session-error'
         }
         
-        result = send_error_sms(inputs)
+        result = send_error_whatsapp(inputs)
         
         assert result['messageSent'] is True
-        mock_sender.send_sms.assert_called_once()
+        mock_sender.send_whatsapp.assert_called_once()
         
         # Check that the error message was appropriate
-        call_args = mock_sender.send_sms.call_args[1]
+        call_args = mock_sender.send_whatsapp.call_args[1]
         assert 'validate your phone number' in call_args['message']
     
     @patch('nodes.error_handler.TwilioSMSSender')
@@ -236,10 +236,10 @@ class TestErrorHandler:
             'context': {'retry_after': 5}
         }
         
-        result = send_error_sms(inputs)
+        result = send_error_whatsapp(inputs)
         
         assert result['messageSent'] is True
-        call_args = mock_sender.send_sms.call_args[1]
+        call_args = mock_sender.send_whatsapp.call_args[1]
         assert 'calendar system' in call_args['message']
         assert 'try again in 5 minutes' in call_args['message']
     

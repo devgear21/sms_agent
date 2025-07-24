@@ -160,7 +160,7 @@ class TestConversationOrchestrator:
     
     @pytest.mark.asyncio
     @patch('nodes.phone_validator.validate_phone_number')
-    @patch('nodes.error_handler.send_error_sms')
+    @patch('nodes.error_handler.send_error_whatsapp')
     @patch('tracing.langsmith_monitor.langsmith_monitor')
     async def test_invalid_phone_number_flow(self, mock_langsmith, mock_error, mock_validate):
         """Test flow when phone number is invalid"""
@@ -346,7 +346,7 @@ class TestErrorScenarios:
         with patch('nodes.phone_validator.validate_phone_number') as mock_validate:
             mock_validate.side_effect = Exception("Unexpected error")
             
-            with patch('nodes.error_handler.send_error_sms') as mock_error:
+            with patch('nodes.error_handler.send_error_whatsapp') as mock_error:
                 mock_error.return_value = {'messageSent': True}
                 
                 result = await orchestrator.process_sms(webhook_data)

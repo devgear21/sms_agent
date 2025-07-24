@@ -83,7 +83,7 @@ spec:
       error_handling:
         retry_count: 3
         retry_delay: 1
-        fallback_node: send_error_sms
+        fallback_node: send_error_whatsapp
 
     # 2. Send Welcome SMS
     send_welcome_sms:
@@ -190,10 +190,10 @@ spec:
         fallback_node: log_confirmation_failure
 
     # Error handling nodes
-    send_error_sms:
+    send_error_whatsapp:
       type: function
       implementation: "./nodes/error_handler.py"
-      description: "Sends user-friendly error messages via SMS"
+      description: "Sends user-friendly error messages via WhatsApp"
       inputs:
         - phoneNumber
         - errorType
@@ -237,7 +237,7 @@ spec:
       condition: "inputs.isValid == true"
     
     - from: validate_phone_number
-      to: send_error_sms
+      to: send_error_whatsapp
       condition: "inputs.isValid == false"
 
     # Welcome flow
