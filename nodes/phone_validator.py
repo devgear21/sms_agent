@@ -6,7 +6,7 @@ Instrumented with LangSmith tracing
 
 import uuid
 import phonenumbers
-from phonenumbers import NumberParseException, PhoneNumberFormat
+from phonenumbers import NumberParseException, PhoneNumberFormat, carrier
 from langsmith import traceable
 from typing import Dict, Any, Tuple
 import structlog
@@ -72,13 +72,13 @@ def validate_phone_number(inputs: Dict[str, Any]) -> Dict[str, Any]:
         
         # Extract additional metadata
         region_code = phonenumbers.region_code_for_number(parsed_number)
-        carrier = phonenumbers.carrier.name_for_number(parsed_number, "en")
+        carrier_name = carrier.name_for_number(parsed_number, "en")
         number_type = phonenumbers.number_type(parsed_number)
         
         logger.info("Phone validation successful", 
                     formatted_phone=formatted_phone,
                     region_code=region_code,
-                    carrier=carrier,
+                    carrier=carrier_name,
                     number_type=str(number_type),
                     session_id=session_id)
         
@@ -90,7 +90,7 @@ def validate_phone_number(inputs: Dict[str, Any]) -> Dict[str, Any]:
             "metadata": {
                 "original": raw_phone,
                 "region": region_code,
-                "carrier": carrier,
+                "carrier": carrier_name,
                 "type": str(number_type)
             }
         }
