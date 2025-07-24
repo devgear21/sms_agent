@@ -49,8 +49,12 @@ def validate_phone_number(inputs: Dict[str, Any]) -> Dict[str, Any]:
     
     try:
         # Parse phone number with libphonenumber
-        # Assume US region if no country code provided
-        parsed_number = phonenumbers.parse(raw_phone, "US")
+        # Use None to auto-detect region, fallback to US for numbers without country code
+        try:
+            parsed_number = phonenumbers.parse(raw_phone, None)
+        except NumberParseException:
+            # If parsing with None fails, try with US region for local numbers
+            parsed_number = phonenumbers.parse(raw_phone, "US")
         
         # Validate the number
         is_valid = phonenumbers.is_valid_number(parsed_number)
@@ -72,7 +76,14 @@ def validate_phone_number(inputs: Dict[str, Any]) -> Dict[str, Any]:
         
         # Extract additional metadata
         region_code = phonenumbers.region_code_for_number(parsed_number)
-        carrier_name = carrier.name_for_number(parsed_number, "en")
+        
+        # Try to get carrier name, but don't fail if it doesn't work
+        try:
+            carrier_name = carrier.name_for_number(parsed_number, "en")
+        except Exception as e:
+            logger.warning("Could not get carrier name", error=str(e), phone=formatted_phone)
+            carrier_name = "unknown"
+        
         number_type = phonenumbers.number_type(parsed_number)
         
         logger.info("Phone validation successful", 
