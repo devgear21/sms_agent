@@ -19,6 +19,7 @@ google-cloud-firestore>=2.11.0
 # Web framework for webhook endpoints
 fastapi>=0.100.0
 uvicorn>=0.22.0
+python-multipart>=0.0.6
 
 # Environment and configuration
 python-dotenv>=1.0.0
