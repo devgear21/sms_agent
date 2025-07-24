@@ -92,27 +92,38 @@ class ConversationOrchestrator:
         session_trace = None
         
         try:
-            # Step 1: Validate phone number (extract from WhatsApp format)
-            validation_start = time.time()
-            # Remove 'whatsapp:' prefix from phone number
-            clean_from = webhook_data.From.replace('whatsapp:', '')
-            validation_result = validate_phone_number({
-                'From': clean_from,
-                'Body': webhook_data.Body
-            })
-            validation_duration = (time.time() - validation_start) * 1000
-            
-            if not validation_result.get('isValid'):
-                # Send error SMS for invalid phone
-                await self._send_error_and_log(
-                    phone_number=webhook_data.From.replace('whatsapp:', ''),
-                    error_type="phone_validation",
-                    session_id=validation_result.get('sessionId', ''),
-                    context={"original_number": webhook_data.From}
-                )
-                return {"status": "error", "message": "Invalid phone number"}
-            
-            # Extract validated data
+        # Step 1: Validate phone number (extract from WhatsApp format)
+        validation_start = time.time()
+        # Remove 'whatsapp:' prefix from phone number
+        clean_from = webhook_data.From.replace('whatsapp:', '')
+        
+        # Debug logging
+        self.logger.info("Phone validation debug", 
+                        original_from=webhook_data.From,
+                        clean_from=clean_from,
+                        body=webhook_data.Body,
+                        session_id_will_be_generated=True)
+        
+        validation_result = validate_phone_number({
+            'From': clean_from,
+            'Body': webhook_data.Body
+        })
+        validation_duration = (time.time() - validation_start) * 1000
+        
+        # Debug validation result
+        self.logger.info("Phone validation result", 
+                        validation_result=validation_result,
+                        duration_ms=validation_duration)
+        
+        if not validation_result.get('isValid'):
+            # Send error SMS for invalid phone
+            await self._send_error_and_log(
+                phone_number=webhook_data.From.replace('whatsapp:', ''),
+                error_type="phone_validation",
+                session_id=validation_result.get('sessionId', ''),
+                context={"original_number": webhook_data.From}
+            )
+            return {"status": "error", "message": "Invalid phone number"}            # Extract validated data
             phone_number = validation_result['phoneNumber']
             session_id = validation_result['sessionId']
             user_message = validation_result['userMessage']
