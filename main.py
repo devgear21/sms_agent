@@ -330,8 +330,10 @@ class ConversationOrchestrator:
             
             # Send Groq's response to user (if provided)
             if groq_result.get('response_message'):
-                # Implementation would send SMS here
-                pass
+                # Send the response via WhatsApp
+                response_result = await self._send_groq_response(
+                    phone_number, groq_result.get('response_message'), session_id, session_trace
+                )
             
             # Update session
             session_state['messages'].append({
@@ -471,6 +473,48 @@ class ConversationOrchestrator:
             error=fallback_result.get('error'),
             parent_trace=session_trace
         )
+    
+    async def _send_groq_response(self, phone_number: str, response_message: str,
+                                 session_id: str, session_trace: Any) -> None:
+        """Send Groq's response message via WhatsApp"""
+        start_time = time.time()
+        
+        # Import the WhatsApp sender here to avoid circular imports
+        from nodes.twilio_sender import TwilioWhatsAppSender
+        
+        try:
+            whatsapp_sender = TwilioWhatsAppSender()
+            groq_result = whatsapp_sender.send_whatsapp(
+                to_number=phone_number,
+                message=response_message,
+                session_id=session_id,
+                message_type="groq_response"
+            )
+            
+            duration = (time.time() - start_time) * 1000
+            
+            # Trace Groq response WhatsApp
+            langsmith_monitor.trace_node_execution(
+                node_name="send_groq_response",
+                session_id=session_id,
+                inputs={'phoneNumber': phone_number, 'responseMessage': response_message},
+                outputs=groq_result,
+                duration_ms=duration,
+                success=groq_result.get('messageSent', False),
+                error=groq_result.get('error'),
+                parent_trace=session_trace
+            )
+            
+            self.logger.info("Groq response sent via WhatsApp", 
+                           phone_number=phone_number,
+                           session_id=session_id,
+                           message_sent=groq_result.get('messageSent', False))
+                           
+        except Exception as e:
+            self.logger.error("Failed to send Groq response via WhatsApp", 
+                            error=str(e),
+                            phone_number=phone_number,
+                            session_id=session_id)
     
     async def _send_error_and_log(self, phone_number: str, error_type: str,
                                  session_id: str, context: Dict[str, Any]) -> None:
