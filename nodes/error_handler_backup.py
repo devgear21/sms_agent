@@ -1,7 +1,6 @@
 """
 Error Handler Node
 Manages error responses and user-friendly error messaging via WhatsApp
-Updated for WhatsApp deployment - July 24, 2025
 """
 
 import os
@@ -10,7 +9,7 @@ from langsmith import traceable
 import structlog
 from datetime import datetime
 
-# Import the WhatsApp sender class
+# Import the WhatsApp sender
 from .twilio_sender import TwilioWhatsAppSender
 
 # Configure structured logging
