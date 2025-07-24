@@ -1,6 +1,6 @@
 """
 Error Handler Node
-Manages error responses and user-friendly error messaging via SMS
+Manages error responses and user-friendly error messaging via WhatsApp
 """
 
 import os
