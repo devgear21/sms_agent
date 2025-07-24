@@ -127,7 +127,7 @@ RULES:
             
             # Parse JSON response
             try:
-                # Clean the response content - remove potential markdown formatting
+                # Aggressive JSON cleaning to handle newlines and formatting issues
                 cleaned_response = response_content.strip()
                 
                 # Remove markdown code blocks if present
@@ -139,12 +139,31 @@ RULES:
                 # Remove any leading/trailing whitespace again
                 cleaned_response = cleaned_response.strip()
                 
+                # AGGRESSIVE: Remove all problematic newlines and extra spaces
+                # Replace newlines with spaces in JSON strings
+                cleaned_response = re.sub(r'\n\s*"', ' "', cleaned_response)  # newline before quotes
+                cleaned_response = re.sub(r'"\s*\n\s*', '" ', cleaned_response)  # newline after quotes
+                cleaned_response = re.sub(r':\s*\n\s*', ': ', cleaned_response)  # newline after colons
+                cleaned_response = re.sub(r',\s*\n\s*', ', ', cleaned_response)  # newline after commas
+                cleaned_response = re.sub(r'{\s*\n\s*', '{ ', cleaned_response)  # newline after opening brace
+                cleaned_response = re.sub(r'\s*\n\s*}', ' }', cleaned_response)  # newline before closing brace
+                
+                # Replace multiple spaces with single space
+                cleaned_response = re.sub(r'\s+', ' ', cleaned_response)
+                
                 logger.info("Attempting to parse JSON response", 
+                           original_length=len(response_content),
                            cleaned_length=len(cleaned_response),
-                           first_50_chars=cleaned_response[:50],
+                           first_100_chars=cleaned_response[:100],
                            session_id=session_id)
                 
                 parsed_response = json.loads(cleaned_response)
+                
+                # Validate required fields
+                required_fields = ['extracted_datetime', 'response_message', 'next_state', 'needs_more_info']
+                for field in required_fields:
+                    if field not in parsed_response:
+                        raise ValueError(f"Missing required field: {field}")
                 
                 # Validate required fields
                 required_fields = ['extracted_datetime', 'response_message', 'next_state', 'needs_more_info']
@@ -173,21 +192,56 @@ RULES:
                            response_length=len(response_content),
                            session_id=session_id)
                 
-                # Try to extract a simple response if possible
-                fallback_message = "I'd be happy to help you schedule an appointment! Could you please tell me what date and time you'd prefer?"
-                
-                # Look for a response_message in the malformed JSON
+                # BACKUP APPROACH: Try to extract JSON object manually
                 try:
-                    if '"response_message"' in cleaned_response:
-                        # Try to extract just the response message
-                        match = re.search(r'"response_message"\s*:\s*"([^"]*)"', cleaned_response)
-                        if match:
-                            fallback_message = match.group(1)
-                except Exception:
-                    pass
-                
-                # Fallback response
-                return self._create_fallback_response(user_message, session_id, fallback_message)
+                    # Find JSON object boundaries
+                    start_idx = response_content.find('{')
+                    end_idx = response_content.rfind('}')
+                    
+                    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                        json_part = response_content[start_idx:end_idx + 1]
+                        
+                        # Apply aggressive cleaning to just the JSON part
+                        json_part = re.sub(r'\n\s*', ' ', json_part)  # Replace all newlines with spaces
+                        json_part = re.sub(r'\s+', ' ', json_part)    # Replace multiple spaces with single
+                        
+                        logger.info("Attempting backup JSON parsing", 
+                                   backup_json=json_part[:100],
+                                   session_id=session_id)
+                        
+                        parsed_response = json.loads(json_part)
+                        
+                        # Validate required fields
+                        required_fields = ['extracted_datetime', 'response_message', 'next_state', 'needs_more_info']
+                        for field in required_fields:
+                            if field not in parsed_response:
+                                raise ValueError(f"Missing required field: {field}")
+                        
+                        logger.info("Backup JSON parsing successful!", session_id=session_id)
+                        
+                    else:
+                        raise ValueError("No valid JSON object found")
+                        
+                except Exception as backup_error:
+                    logger.error("Backup JSON parsing also failed", 
+                               error=str(backup_error),
+                               session_id=session_id)
+                    
+                    # Try to extract a simple response if possible
+                    fallback_message = "I'd be happy to help you schedule an appointment! Could you please tell me what date and time you'd prefer?"
+                    
+                    # Look for a response_message in the malformed JSON
+                    try:
+                        if '"response_message"' in response_content:
+                            # Try to extract just the response message
+                            match = re.search(r'"response_message"\s*:\s*"([^"]*)"', response_content)
+                            if match:
+                                fallback_message = match.group(1)
+                    except Exception:
+                        pass
+                    
+                    # Fallback response
+                    return self._create_fallback_response(user_message, session_id, fallback_message)
             
         except Exception as e:
             logger.error("Groq processing error", 
