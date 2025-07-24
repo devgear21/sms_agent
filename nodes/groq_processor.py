@@ -35,45 +35,17 @@ class ConversationProcessor:
 
     def get_system_prompt(self) -> str:
         """Get the system prompt for appointment booking conversations"""
-        return """You are a helpful appointment booking assistant. Your job is to:
+        return """You are an appointment booking assistant. Respond ONLY with valid JSON.
 
-1. Extract date and time preferences from user messages
-2. Determine if you have enough information to check availability
-3. Provide friendly, professional responses
-4. Handle rescheduling and cancellation requests
+Format: {"extracted_datetime": "YYYY-MM-DD HH:MM" or null, "response_message": "your response", "next_state": "collecting_preferences", "needs_more_info": true/false, "confidence": 0.8, "extracted_elements": {"date_mentioned": null, "time_mentioned": null, "timezone": null}}
 
-CRITICAL: Your response must be ONLY valid JSON with no extra text, markdown, or code blocks.
+Examples:
+User: "Tomorrow 2pm" → {"extracted_datetime": "2025-07-25 14:00", "response_message": "Great! I'll check if tomorrow at 2 PM works.", "next_state": "checking_availability", "needs_more_info": false, "confidence": 0.9, "extracted_elements": {"date_mentioned": "tomorrow", "time_mentioned": "2pm", "timezone": null}}
 
-RESPONSE FORMAT: Always respond with valid JSON in this exact format:
-{
-    "extracted_datetime": "YYYY-MM-DD HH:MM" or null,
-    "response_message": "Your response to the user",
-    "next_state": "collecting_preferences|checking_availability|confirming|completed",
-    "needs_more_info": true/false,
-    "confidence": 0.0-1.0,
-    "extracted_elements": {
-        "date_mentioned": "text that indicates date",
-        "time_mentioned": "text that indicates time",
-        "timezone": "inferred timezone or null"
-    }
-}
+User: "I want to book" → {"extracted_datetime": null, "response_message": "I'd be happy to help! What date and time work for you?", "next_state": "collecting_preferences", "needs_more_info": true, "confidence": 0.3, "extracted_elements": {"date_mentioned": null, "time_mentioned": null, "timezone": null}}
 
-EXAMPLES:
-
-User: "Tomorrow at 2pm"
-Response: {"extracted_datetime": "2025-01-23 14:00", "response_message": "Great! I'll check if tomorrow at 2 PM is available for you.", "next_state": "checking_availability", "needs_more_info": false, "confidence": 0.9, "extracted_elements": {"date_mentioned": "tomorrow", "time_mentioned": "2pm", "timezone": null}}
-
-User: "I need to meet next week"
-Response: {"extracted_datetime": null, "response_message": "I'd be happy to help you schedule for next week! What day and time would work best for you?", "next_state": "collecting_preferences", "needs_more_info": true, "confidence": 0.3, "extracted_elements": {"date_mentioned": "next week", "time_mentioned": null, "timezone": null}}
-
-RULES:
-- Always assume Eastern Time if no timezone specified
-- Convert relative dates (today, tomorrow, next Monday) to absolute dates
-- If date or time is unclear, ask for clarification
-- Be conversational but concise
-- Handle cancellation/reschedule requests appropriately
-- Current date/time context: {current_datetime}
-- IMPORTANT: Return ONLY the JSON object, no additional text or formatting"""
+Current time: {current_datetime}
+Return ONLY the JSON object."""
 
     @traceable(
         name="groq_llm_processing",
@@ -123,6 +95,7 @@ RULES:
             
             logger.info("Groq LLM response received", 
                        response_length=len(response_content),
+                       raw_response=response_content[:200],  # Log first 200 chars
                        session_id=session_id)
             
             # Parse JSON response
@@ -217,7 +190,17 @@ RULES:
                             if field not in parsed_response:
                                 raise ValueError(f"Missing required field: {field}")
                         
-                        logger.info("Backup JSON parsing successful!", session_id=session_id)
+                        # Add metadata for backup parsing success
+                        parsed_response['sessionId'] = session_id
+                        parsed_response['timestamp'] = datetime.utcnow().isoformat()
+                        parsed_response['original_message'] = user_message
+                        parsed_response['backup_parsing'] = True
+                        
+                        logger.info("Backup JSON parsing successful!", 
+                                   session_id=session_id,
+                                   extracted_datetime=parsed_response.get('extracted_datetime'))
+                        
+                        return parsed_response
                         
                     else:
                         raise ValueError("No valid JSON object found")
