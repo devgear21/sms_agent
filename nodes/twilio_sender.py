@@ -88,6 +88,23 @@ class TwilioWhatsAppSender:
             }
             
         except TwilioException as e:
+            # Check for daily limit exceeded (common in sandbox)
+            if "exceeded the" in str(e.msg) and "daily messages limit" in str(e.msg):
+                logger.warning("Twilio daily limit exceeded - normal for sandbox accounts", 
+                             error=str(e),
+                             to_number=to_number,
+                             session_id=session_id)
+                return {
+                    "messageSent": False,
+                    "error": f"Daily limit exceeded: {e.msg}",
+                    "errorCode": getattr(e, 'code', 'unknown'),
+                    "to": to_number,
+                    "messageType": message_type,
+                    "sessionId": session_id,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "limitExceeded": True
+                }
+            
             error_msg = f"Twilio WhatsApp error: {e.msg}"
             logger.error("Twilio WhatsApp sending failed", 
                         error=str(e),

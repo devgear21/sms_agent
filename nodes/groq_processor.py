@@ -103,6 +103,14 @@ Return ONLY the JSON object."""
                 # Aggressive JSON cleaning to handle newlines and formatting issues
                 cleaned_response = response_content.strip()
                 
+                # Check if the entire response is just a quoted string (common Groq issue)
+                if cleaned_response.startswith('"') and cleaned_response.endswith('"') and cleaned_response.count('"') == 2:
+                    logger.warning("Groq returned quoted string instead of JSON", 
+                                 quoted_response=cleaned_response,
+                                 session_id=session_id)
+                    # This is not JSON, return a fallback response
+                    raise ValueError(f"Groq returned quoted string: {cleaned_response}")
+                
                 # Remove markdown code blocks if present
                 if cleaned_response.startswith('```json'):
                     cleaned_response = cleaned_response[7:]  # Remove ```json
