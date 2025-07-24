@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 
 # Import our nodes
 from nodes.phone_validator import validate_phone_number
-from nodes.twilio_sender import send_welcome_sms, send_confirmation_sms
+from nodes.twilio_sender import send_welcome_whatsapp, send_confirmation_whatsapp
 from nodes.groq_processor import process_user_message
 from nodes.calendly_checker import check_calendly_availability
 from nodes.calendly_creator import create_calendly_event
@@ -265,19 +265,19 @@ class ConversationOrchestrator:
     
     async def _send_welcome_message(self, session_id: str, phone_number: str, 
                                    session_trace: Any) -> None:
-        """Send welcome SMS message"""
+        """Send welcome WhatsApp message"""
         start_time = time.time()
         
-        welcome_result = send_welcome_sms({
+        welcome_result = send_welcome_whatsapp({
             'phoneNumber': phone_number,
             'sessionId': session_id
         })
         
         duration = (time.time() - start_time) * 1000
         
-        # Trace welcome SMS
+        # Trace welcome WhatsApp
         langsmith_monitor.trace_node_execution(
-            node_name="send_welcome_sms",
+            node_name="send_welcome_whatsapp",
             session_id=session_id,
             inputs={'phoneNumber': phone_number, 'sessionId': session_id},
             outputs=welcome_result,
@@ -403,10 +403,10 @@ class ConversationOrchestrator:
     
     async def _send_confirmation(self, phone_number: str, booking_result: Dict[str, Any],
                                 session_id: str, session_trace: Any) -> None:
-        """Send booking confirmation SMS"""
+        """Send booking confirmation WhatsApp"""
         start_time = time.time()
         
-        confirmation_result = send_confirmation_sms({
+        confirmation_result = send_confirmation_whatsapp({
             'phoneNumber': phone_number,
             'confirmationDetails': booking_result.get('confirmationDetails', {}),
             'eventUrl': booking_result.get('eventUrl', ''),
@@ -415,9 +415,9 @@ class ConversationOrchestrator:
         
         duration = (time.time() - start_time) * 1000
         
-        # Trace confirmation SMS
+        # Trace confirmation WhatsApp
         langsmith_monitor.trace_node_execution(
-            node_name="send_confirmation_sms",
+            node_name="send_confirmation_whatsapp",
             session_id=session_id,
             inputs={'phoneNumber': phone_number, 'confirmationDetails': booking_result.get('confirmationDetails')},
             outputs=confirmation_result,

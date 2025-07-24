@@ -129,7 +129,7 @@ whatsapp_sender = TwilioWhatsAppSender()
     tags=["whatsapp", "welcome", "onboarding"],
     metadata={"component": "welcome_whatsapp"}
 )
-def send_welcome_sms(inputs: Dict[str, Any]) -> Dict[str, Any]:
+def send_welcome_whatsapp(inputs: Dict[str, Any]) -> Dict[str, Any]:
     """
     Send welcome/greeting WhatsApp message to new users
     
@@ -166,7 +166,7 @@ What works best for you?"""
     tags=["whatsapp", "confirmation", "booking"],
     metadata={"component": "confirmation_whatsapp"}
 )
-def send_confirmation_sms(inputs: Dict[str, Any]) -> Dict[str, Any]:
+def send_confirmation_whatsapp(inputs: Dict[str, Any]) -> Dict[str, Any]:
     """
     Send appointment confirmation WhatsApp message
     
@@ -271,7 +271,7 @@ if __name__ == "__main__":
     }
     
     print("Testing welcome SMS...")
-    result = send_welcome_sms(test_inputs)
+    result = send_welcome_whatsapp(test_inputs)
     print(f"Result: {result}")
     
     # Test confirmation
@@ -286,5 +286,5 @@ if __name__ == "__main__":
     }
     
     print("\nTesting confirmation SMS...")
-    result = send_confirmation_sms(confirmation_inputs)
+    result = send_confirmation_whatsapp(confirmation_inputs)
     print(f"Result: {result}")
