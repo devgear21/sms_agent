@@ -42,6 +42,8 @@ class ConversationProcessor:
 3. Provide friendly, professional responses
 4. Handle rescheduling and cancellation requests
 
+CRITICAL: Your response must be ONLY valid JSON with no extra text, markdown, or code blocks.
+
 RESPONSE FORMAT: Always respond with valid JSON in this exact format:
 {
     "extracted_datetime": "YYYY-MM-DD HH:MM" or null,
@@ -59,32 +61,10 @@ RESPONSE FORMAT: Always respond with valid JSON in this exact format:
 EXAMPLES:
 
 User: "Tomorrow at 2pm"
-Response: {
-    "extracted_datetime": "2025-01-23 14:00",
-    "response_message": "Great! I'll check if tomorrow at 2 PM is available for you.",
-    "next_state": "checking_availability",
-    "needs_more_info": false,
-    "confidence": 0.9,
-    "extracted_elements": {
-        "date_mentioned": "tomorrow",
-        "time_mentioned": "2pm",
-        "timezone": null
-    }
-}
+Response: {"extracted_datetime": "2025-01-23 14:00", "response_message": "Great! I'll check if tomorrow at 2 PM is available for you.", "next_state": "checking_availability", "needs_more_info": false, "confidence": 0.9, "extracted_elements": {"date_mentioned": "tomorrow", "time_mentioned": "2pm", "timezone": null}}
 
 User: "I need to meet next week"
-Response: {
-    "extracted_datetime": null,
-    "response_message": "I'd be happy to help you schedule for next week! What day and time would work best for you?",
-    "next_state": "collecting_preferences",
-    "needs_more_info": true,
-    "confidence": 0.3,
-    "extracted_elements": {
-        "date_mentioned": "next week",
-        "time_mentioned": null,
-        "timezone": null
-    }
-}
+Response: {"extracted_datetime": null, "response_message": "I'd be happy to help you schedule for next week! What day and time would work best for you?", "next_state": "collecting_preferences", "needs_more_info": true, "confidence": 0.3, "extracted_elements": {"date_mentioned": "next week", "time_mentioned": null, "timezone": null}}
 
 RULES:
 - Always assume Eastern Time if no timezone specified
@@ -92,7 +72,8 @@ RULES:
 - If date or time is unclear, ask for clarification
 - Be conversational but concise
 - Handle cancellation/reschedule requests appropriately
-- Current date/time context: {current_datetime}"""
+- Current date/time context: {current_datetime}
+- IMPORTANT: Return ONLY the JSON object, no additional text or formatting"""
 
     @traceable(
         name="groq_llm_processing",
@@ -146,7 +127,24 @@ RULES:
             
             # Parse JSON response
             try:
-                parsed_response = json.loads(response_content)
+                # Clean the response content - remove potential markdown formatting
+                cleaned_response = response_content.strip()
+                
+                # Remove markdown code blocks if present
+                if cleaned_response.startswith('```json'):
+                    cleaned_response = cleaned_response[7:]  # Remove ```json
+                if cleaned_response.endswith('```'):
+                    cleaned_response = cleaned_response[:-3]  # Remove ```
+                
+                # Remove any leading/trailing whitespace again
+                cleaned_response = cleaned_response.strip()
+                
+                logger.info("Attempting to parse JSON response", 
+                           cleaned_length=len(cleaned_response),
+                           first_50_chars=cleaned_response[:50],
+                           session_id=session_id)
+                
+                parsed_response = json.loads(cleaned_response)
                 
                 # Validate required fields
                 required_fields = ['extracted_datetime', 'response_message', 'next_state', 'needs_more_info']
@@ -171,11 +169,25 @@ RULES:
                 logger.error("Failed to parse LLM JSON response", 
                            error=str(e),
                            response_content=response_content,
+                           cleaned_response=cleaned_response,
+                           response_length=len(response_content),
                            session_id=session_id)
                 
+                # Try to extract a simple response if possible
+                fallback_message = "I'd be happy to help you schedule an appointment! Could you please tell me what date and time you'd prefer?"
+                
+                # Look for a response_message in the malformed JSON
+                try:
+                    if '"response_message"' in cleaned_response:
+                        # Try to extract just the response message
+                        match = re.search(r'"response_message"\s*:\s*"([^"]*)"', cleaned_response)
+                        if match:
+                            fallback_message = match.group(1)
+                except Exception:
+                    pass
+                
                 # Fallback response
-                return self._create_fallback_response(user_message, session_id, 
-                                                    "I'm having trouble understanding your request. Could you please tell me what date and time you'd prefer?")
+                return self._create_fallback_response(user_message, session_id, fallback_message)
             
         except Exception as e:
             logger.error("Groq processing error", 
