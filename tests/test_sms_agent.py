@@ -194,11 +194,11 @@ class TestGroqProcessor:
 class TestErrorHandler:
     """Test error handling functionality"""
     
-    @patch('nodes.error_handler.TwilioSMSSender')
+    @patch('nodes.error_handler.TwilioWhatsAppSender')
     def test_phone_validation_error(self, mock_twilio):
         """Test phone validation error message"""
         mock_sender = Mock()
-        mock_sender.send_sms.return_value = {
+        mock_sender.send_whatsapp.return_value = {
             'messageSent': True,
             'messageId': 'test-msg-123'
         }
@@ -219,11 +219,11 @@ class TestErrorHandler:
         call_args = mock_sender.send_whatsapp.call_args[1]
         assert 'validate your phone number' in call_args['message']
     
-    @patch('nodes.error_handler.TwilioSMSSender')
+    @patch('nodes.error_handler.TwilioWhatsAppSender')
     def test_calendly_api_error(self, mock_twilio):
         """Test Calendly API error message"""
         mock_sender = Mock()
-        mock_sender.send_sms.return_value = {
+        mock_sender.send_whatsapp.return_value = {
             'messageSent': True,
             'messageId': 'test-msg-124'
         }
@@ -265,11 +265,11 @@ class TestErrorHandler:
 class TestFallbackHandler:
     """Test fallback response functionality"""
     
-    @patch('nodes.fallback_handler.TwilioSMSSender')
+    @patch('nodes.fallback_handler.TwilioWhatsAppSender')
     def test_general_fallback_response(self, mock_twilio):
         """Test general fallback response"""
         mock_sender = Mock()
-        mock_sender.send_sms.return_value = {
+        mock_sender.send_whatsapp.return_value = {
             'messageSent': True,
             'messageId': 'test-fallback-123'
         }
@@ -386,7 +386,7 @@ class TestLogger:
 class TestEndToEndFlow:
     """Test end-to-end conversation flows"""
     
-    @patch('nodes.twilio_sender.TwilioSMSSender')
+    @patch('nodes.twilio_sender.TwilioWhatsAppSender')
     @patch('nodes.groq_processor.ChatGroq')
     @patch('nodes.calendly_checker.CalendlyAvailabilityChecker')
     @patch('nodes.calendly_creator.CalendlyEventCreator')
